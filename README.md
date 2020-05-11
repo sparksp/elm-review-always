@@ -14,8 +14,6 @@ Provides an [`elm-review`](https://package.elm-lang.org/packages/jfmengels/elm-r
 ## Example configuration
 
 ```elm
-module ReviewConfig exposing (config)
-
 import Review.Rule exposing (Rule)
 import NoAlways
 
