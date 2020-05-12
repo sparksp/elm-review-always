@@ -3,7 +3,7 @@
     "name": "sparksp/elm-review-always",
     "summary": "elm-review rule to forbid `always`.",
     "license": "MIT",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "exposed-modules": [
         "NoAlways"
     ],
