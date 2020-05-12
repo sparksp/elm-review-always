@@ -100,6 +100,22 @@ foo =
     ( "foo", (\\_ -> "bar") )
 """
                         ]
+        , test "always pipe right" <|
+            \_ ->
+                """
+module Foo exposing (foo)
+foo = "foo" |> always
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "always pipe left" <|
+            \_ ->
+                """
+module Foo exposing (foo)
+foo = always <| heavyComputation "foo"
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
