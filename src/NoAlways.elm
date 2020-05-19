@@ -16,7 +16,7 @@ import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
 
-{-| Forbid the use of [`always`][always].
+{-| Forbid the use of [`always`](https://package.elm-lang.org/packages/elm/core/latest/Basics#always).
 
     config : List Rule
     config =
@@ -27,22 +27,18 @@ Use an [anonymous function] `\_ ->` instead of `always`.
 
 It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument.
 
-[always]: https://package.elm-lang.org/packages/elm/core/latest/Basics#always
+    -- Don't do this --
+    List.map (always 0) [ 1, 2, 3, 4 ]
+
+    -- Instead do this --
+    List.map (\_ -> 0) [ 1, 2, 3, 4 ]
+
 [anonymous function]: https://elm-lang.org/docs/syntax#functions
 
 
 ## When (not) to use this rule
 
 If you are in a team then other members may have strong opinions about `always` - make sure that everyone is on board before you decide to adopt this rule.
-
-
-## Failure
-
-    -- Don't do this --
-    List.map (always 0) [ 1, 2, 3, 4 ]
-
-    -- Instead do this --
-    List.map (\_ -> 0) [ 1, 2, 3, 4 ]
 
 
 ## Caution: Heavy Computation
