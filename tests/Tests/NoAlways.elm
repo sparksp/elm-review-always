@@ -1,4 +1,4 @@
-module NoAlwaysTests exposing (all)
+module Tests.NoAlways exposing (all)
 
 import NoAlways exposing (rule)
 import Review.Test
