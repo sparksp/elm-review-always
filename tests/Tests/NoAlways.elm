@@ -16,7 +16,7 @@ all =
 testLocations : List Test
 testLocations =
     [ test "always in brackets" <|
-        \_ ->
+        \() ->
             """
 module Main exposing (main)
 import Foo exposing (foo)
@@ -33,7 +33,7 @@ main = foo ((\\_ -> "foo"))
 """
                     ]
     , test "always in a list" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo =
@@ -50,7 +50,7 @@ foo =
 """
                     ]
     , test "always in a map" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo =
@@ -67,7 +67,7 @@ foo =
 """
                     ]
     , test "always in a record" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo =
@@ -88,7 +88,7 @@ foo =
 """
                     ]
     , test "always in a tuple" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo =
@@ -105,7 +105,7 @@ foo =
 """
                     ]
     , test "always pipe right" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = "foo" |> always
@@ -113,7 +113,7 @@ foo = "foo" |> always
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "always pipe left" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always <| heavyComputation "foo"
@@ -141,7 +141,7 @@ foo = (\\_ -> 1)
 testTypes : List Test
 testTypes =
     [ test "always always" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always (always True)
@@ -164,7 +164,7 @@ foo = always ((\\_ -> True))
 """
                     ]
     , test "always Bool" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always True
@@ -179,7 +179,7 @@ foo = (\\_ -> True)
 """
                     ]
     , test "always Float" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always 4.2
@@ -194,7 +194,7 @@ foo = (\\_ -> 4.2)
 """
                     ]
     , test "always Int" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always 42
@@ -209,7 +209,7 @@ foo = (\\_ -> 42)
 """
                     ]
     , test "always List" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always [1, 2, 3]
@@ -224,7 +224,7 @@ foo = (\\_ -> [1, 2, 3])
 """
                     ]
     , test "always Just" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always (Just 42)
@@ -239,7 +239,7 @@ foo = (\\_ -> (Just 42))
 """
                     ]
     , test "always String" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always "foo"
@@ -254,7 +254,7 @@ foo = (\\_ -> "foo")
 """
                     ]
     , test "always Tuple" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always ( "foo", "bar" )
@@ -269,7 +269,7 @@ foo = (\\_ -> ("foo", "bar"))
 """
                     ]
     , test "always Unit" <|
-        \_ ->
+        \() ->
             """
 module Foo exposing (foo)
 foo = always ()
