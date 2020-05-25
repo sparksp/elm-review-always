@@ -15,7 +15,7 @@ all =
 
 testLocations : List Test
 testLocations =
-    [ test "always in brackets does not add extra brackets" <|
+    [ test "always in brackets" <|
         \_ ->
             """
 module Main exposing (main)
@@ -29,7 +29,7 @@ main = foo (always "foo")
                             """
 module Main exposing (main)
 import Foo exposing (foo)
-main = foo (\\_ -> "foo")
+main = foo ((\\_ -> "foo"))
 """
                     ]
     , test "always in a list" <|
@@ -63,7 +63,7 @@ foo =
                             """
 module Foo exposing (foo)
 foo =
-    List.map (\\_ -> 0) [ 1, 2, 3, 4 ]
+    List.map ((\\_ -> 0)) [ 1, 2, 3, 4 ]
 """
                     ]
     , test "always in a record" <|
@@ -138,14 +138,14 @@ foo = always (always True)
                         |> Review.Test.whenFixed
                             """
 module Foo exposing (foo)
-foo = (\\_ -> always True)
+foo = (\\_ -> (always True))
 """
                     , alwaysError
                         |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 21 } }
                         |> Review.Test.whenFixed
                             """
 module Foo exposing (foo)
-foo = always (\\_ -> True)
+foo = always ((\\_ -> True))
 """
                     ]
     , test "always Bool" <|
@@ -220,7 +220,7 @@ foo = always (Just 42)
                         |> Review.Test.whenFixed
                             """
 module Foo exposing (foo)
-foo = (\\_ -> Just 42)
+foo = (\\_ -> (Just 42))
 """
                     ]
     , test "always String" <|
