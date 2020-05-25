@@ -120,6 +120,21 @@ foo = always <| heavyComputation "foo"
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
+    , test "Basics.always" <|
+        \() ->
+            """
+module A exposing (..)
+foo = Basics.always 1
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorUnder "Basics.always"
+                        |> Review.Test.whenFixed
+                            """
+module A exposing (..)
+foo = (\\_ -> 1)
+"""
+                    ]
     ]
 
 
@@ -273,11 +288,16 @@ foo = (\\_ -> ())
 
 alwaysError : Review.Test.ExpectedError
 alwaysError =
+    alwaysErrorUnder "always"
+
+
+alwaysErrorUnder : String -> Review.Test.ExpectedError
+alwaysErrorUnder under =
     Review.Test.error
         { message = "`always` is not allowed."
         , details =
             [ "You should replace this `always` with an anonymous function `\\_ ->`."
             , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
             ]
-        , under = "always"
+        , under = under
         }

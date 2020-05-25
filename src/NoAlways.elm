@@ -74,19 +74,22 @@ expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor (Node range node) =
     case node of
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
-            let
-                fix : Fix
-                fix =
-                    expression
-                        |> applyLambda
-                        |> applyBrackets
-                        |> expressionToString
-                        |> Fix.replaceRangeBy range
-            in
-            [ error alwaysRange [ fix ] ]
+            [ error alwaysRange [ fixAlways range expression ] ]
+
+        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
+            [ error alwaysRange [ fixAlways range expression ] ]
 
         _ ->
             []
+
+
+fixAlways : Range -> Node Expression -> Fix
+fixAlways range expression =
+    expression
+        |> applyLambda
+        |> applyBrackets
+        |> expressionToString
+        |> Fix.replaceRangeBy range
 
 
 error : Range -> List Fix -> Error {}
