@@ -26,7 +26,8 @@ main = foo (always "foo")
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Main exposing (main)
 import Foo exposing (foo)
 main = foo (\\_ -> "foo")
@@ -42,7 +43,8 @@ foo =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo =
     [ "foo", (\\_ -> "bar") ]
@@ -58,7 +60,8 @@ foo =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo =
     List.map (\\_ -> 0) [ 1, 2, 3, 4 ]
@@ -76,7 +79,8 @@ foo =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo =
     { foo = "foo"
@@ -94,7 +98,8 @@ foo =
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo =
     ( "foo", (\\_ -> "bar") )
@@ -131,17 +136,19 @@ foo = always (always True)
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 13 } }
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> always True)
 """
-                            |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 13 } }
                         , alwaysError
-                            """
+                            |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 21 } }
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = always (\\_ -> True)
 """
-                            |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 21 } }
                         ]
         , test "always Bool" <|
             \_ ->
@@ -152,7 +159,8 @@ foo = always True
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> True)
 """
@@ -166,7 +174,8 @@ foo = always 4.2
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> 4.2)
 """
@@ -180,7 +189,8 @@ foo = always 42
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> 42)
 """
@@ -194,7 +204,8 @@ foo = always [1, 2, 3]
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> [1, 2, 3])
 """
@@ -208,7 +219,8 @@ foo = always (Just 42)
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> Just 42)
 """
@@ -222,7 +234,8 @@ foo = always "foo"
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> "foo")
 """
@@ -236,7 +249,8 @@ foo = always ( "foo", "bar" )
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> ("foo", "bar"))
 """
@@ -250,7 +264,8 @@ foo = always ()
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ alwaysError
-                            """
+                            |> Review.Test.whenFixed
+                                """
 module Foo exposing (foo)
 foo = (\\_ -> ())
 """
@@ -258,8 +273,8 @@ foo = (\\_ -> ())
         ]
 
 
-alwaysError : String -> Review.Test.ExpectedError
-alwaysError fix =
+alwaysError : Review.Test.ExpectedError
+alwaysError =
     Review.Test.error
         { message = "`always` is not allowed."
         , details =
@@ -268,4 +283,3 @@ alwaysError fix =
             ]
         , under = "always"
         }
-        |> Review.Test.whenFixed fix
