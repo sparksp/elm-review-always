@@ -7,11 +7,10 @@ module NoAlways exposing (rule)
 -}
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Writer
-import NoAlways.Context as Context
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
@@ -66,41 +65,31 @@ If the value you always want is the result of some heavy computation then you wi
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoAlways" Context.initial
-        |> Rule.withExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchema "NoAlways" ()
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context.Module -> ( List (Error {}), Context.Module )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.ParenthesizedExpression _ ) ->
-            ( [], Context.clearNeedBrackets context )
+expressionVisitor : Node Expression -> List (Error {})
+expressionVisitor (Node range node) =
+    case node of
+        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
+            [ error alwaysRange [ fixAlways range expression ] ]
 
-        ( Rule.OnEnter, Expression.Application (function :: [ expression ]) ) ->
-            case Node.value function of
-                Expression.FunctionOrValue [] "always" ->
-                    let
-                        fix : Fix
-                        fix =
-                            expression
-                                |> applyLambda
-                                |> applyBrackets context
-                                |> expressionToString
-                                |> Fix.replaceRangeBy (Node.range node)
-                    in
-                    ( [ error (Node.range function) [ fix ] ]
-                    , Context.resetNeedBrackets context
-                    )
+        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
+            [ error alwaysRange [ fixAlways range expression ] ]
 
-                _ ->
-                    ( [], Context.resetNeedBrackets context )
+        _ ->
+            []
 
-        ( Rule.OnEnter, _ ) ->
-            ( [], Context.resetNeedBrackets context )
 
-        ( Rule.OnExit, _ ) ->
-            ( [], context )
+fixAlways : Range -> Node Expression -> Fix
+fixAlways range expression =
+    expression
+        |> applyLambda
+        |> applyBrackets
+        |> expressionToString
+        |> Fix.replaceRangeBy range
 
 
 error : Range -> List Fix -> Error {}
@@ -120,30 +109,16 @@ applyLambda : Node Expression -> Node Expression
 applyLambda expression =
     Expression.LambdaExpression
         { args = [ Node.Node Range.emptyRange Pattern.AllPattern ]
-        , expression = stripBrackets expression
+        , expression = expression
         }
         |> Node.Node Range.emptyRange
 
 
-stripBrackets : Node Expression -> Node Expression
-stripBrackets expression =
-    case Node.value expression of
-        Expression.ParenthesizedExpression inner ->
-            inner
-
-        _ ->
-            expression
-
-
-applyBrackets : Context.Module -> Node Expression -> Node Expression
-applyBrackets context expression =
-    if Context.needBrackets context then
-        expression
-            |> Expression.ParenthesizedExpression
-            |> Node.Node Range.emptyRange
-
-    else
-        expression
+applyBrackets : Node Expression -> Node Expression
+applyBrackets expression =
+    expression
+        |> Expression.ParenthesizedExpression
+        |> Node.Node Range.emptyRange
 
 
 expressionToString : Node Expression -> String

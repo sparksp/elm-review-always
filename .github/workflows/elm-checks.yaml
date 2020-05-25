@@ -99,20 +99,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Get yarn cache directory
+        id: yarn-cache-dir
+        run: echo "::set-output name=path::$(yarn cache dir)"
       - uses: actions/cache@v1
-        id: npm-cache
+        id: yarn-cache
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          path: ${{ steps.yarn-cache-dir.outputs.path }}
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-node-
+            ${{ runner.os }}-yarn-
       - uses: actions/cache@v1
         id: elm-cache
         with:
           path: ~/.elm
           key: ${{ runner.os }}-elm--home-${{ hashFiles('**/elm.json') }}
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      - name: Install elm-analyse
+        run: yarn add elm-analyse
+      - name: Add yarn bin to path
+        run: echo ::add-path::$(yarn bin)
       - name: Run elm-analyse
-        uses: harehare/elm-analyse-action@v1
+        run: elm-analyse
 
   elm-build-docs:
     runs-on: ubuntu-latest
