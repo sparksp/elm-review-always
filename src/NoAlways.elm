@@ -74,13 +74,39 @@ expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor (Node range node) =
     case node of
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
-            [ error alwaysRange [ fixAlways range expression ] ]
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression
+            ]
 
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
-            [ error alwaysRange [ fixAlways range expression ] ]
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression
+            ]
 
         _ ->
             []
+
+
+alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
+alwaysExpressionError ranges expression =
+    if containsFunctionOrValue expression then
+        errorWithWarning ranges.always (expressionToString expression)
+
+    else
+        errorWithFix ranges.always [ fixAlways ranges.application expression ]
+
+
+containsFunctionOrValue : Node Expression -> Bool
+containsFunctionOrValue (Node _ expression) =
+    case expression of
+        Expression.FunctionOrValue _ name ->
+            case String.uncons name of
+                Just ( start, _ ) ->
+                    Char.isLower start
+
+                Nothing ->
+                    False
+
+        _ ->
+            False
 
 
 fixAlways : Range -> Node Expression -> Fix
@@ -92,8 +118,8 @@ fixAlways range expression =
         |> Fix.replaceRangeBy range
 
 
-error : Range -> List Fix -> Error {}
-error range fix =
+errorWithFix : Range -> List Fix -> Error {}
+errorWithFix range fix =
     Rule.errorWithFix
         { message = "`always` is not allowed."
         , details =
@@ -103,6 +129,19 @@ error range fix =
         }
         range
         fix
+
+
+errorWithWarning : Range -> String -> Error {}
+errorWithWarning range function =
+    Rule.error
+        { message = "`always` is not allowed."
+        , details =
+            [ "You should replace this `always` with an anonymous function `\\_ ->`."
+            , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
+            , "Caution: If `" ++ function ++ "` does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
+            ]
+        }
+        range
 
 
 applyLambda : Node Expression -> Node Expression

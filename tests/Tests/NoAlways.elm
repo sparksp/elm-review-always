@@ -8,13 +8,14 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "NoAlways"
-        [ describe "locations" testLocations
-        , describe "types" testTypes
+        [ describe "locations" locationTests
+        , describe "types" typeTests
+        , describe "functions" functionTests
         ]
 
 
-testLocations : List Test
-testLocations =
+locationTests : List Test
+locationTests =
     [ test "always in brackets" <|
         \() ->
             """
@@ -138,8 +139,8 @@ foo = (\\_ -> 1)
     ]
 
 
-testTypes : List Test
-testTypes =
+typeTests : List Test
+typeTests =
     [ test "always always" <|
         \() ->
             """
@@ -286,6 +287,38 @@ foo = (\\_ -> ())
     ]
 
 
+functionTests : List Test
+functionTests =
+    [ test "always function includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always heavyComputation
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                        { always = "heavyComputation"
+                        , under = "always"
+                        }
+                    ]
+    , test "always qualified function includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+import Bar
+foo = always Bar.heavyComputation
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                        { always = "Bar.heavyComputation"
+                        , under = "always"
+                        }
+                    ]
+    ]
+
+
 alwaysError : Review.Test.ExpectedError
 alwaysError =
     alwaysErrorUnder "always"
@@ -300,4 +333,17 @@ alwaysErrorUnder under =
             , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
             ]
         , under = under
+        }
+
+
+alwaysErrorWithWarning : { always : String, under : String } -> Review.Test.ExpectedError
+alwaysErrorWithWarning opts =
+    Review.Test.error
+        { message = "`always` is not allowed."
+        , details =
+            [ "You should replace this `always` with an anonymous function `\\_ ->`."
+            , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
+            , "Caution: If `" ++ opts.always ++ "` does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
+            ]
+        , under = opts.under
         }
