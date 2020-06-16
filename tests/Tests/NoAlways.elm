@@ -149,13 +149,8 @@ foo = always (always True)
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
-                    [ alwaysError
+                    [ alwaysErrorWithWarning
                         |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 13 } }
-                        |> Review.Test.whenFixed
-                            """
-module Foo exposing (foo)
-foo = (\\_ -> (always True))
-"""
                     , alwaysError
                         |> Review.Test.atExactly { start = { row = 3, column = 15 }, end = { row = 3, column = 21 } }
                         |> Review.Test.whenFixed
@@ -207,6 +202,36 @@ foo = always 42
                             """
 module Foo exposing (foo)
 foo = (\\_ -> 42)
+"""
+                    ]
+    , test "always Hex" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always 0x42
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> 0x42)
+"""
+                    ]
+    , test "always negative" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always -42
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> -42)
 """
                     ]
     , test "always List" <|
@@ -284,6 +309,21 @@ module Foo exposing (foo)
 foo = (\\_ -> ())
 """
                     ]
+    , test "always Operator" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always (1 + 2)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> (1 + 2))
+"""
+                    ]
     ]
 
 
@@ -298,9 +338,6 @@ foo = always heavyComputation
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
-                        { always = "heavyComputation"
-                        , under = "always"
-                        }
                     ]
     , test "always qualified function includes extra warning" <|
         \() ->
@@ -312,9 +349,46 @@ foo = always Bar.heavyComputation
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
-                        { always = "Bar.heavyComputation"
-                        , under = "always"
-                        }
+                    ]
+    , test "always typed function includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always (Just heavyComputation)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always function in a list includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always [ heavyComputation ]
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always function in a tuple includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always ( heavyComputation, 1.0 )
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always negative function includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always -bar
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
                     ]
     ]
 
@@ -336,14 +410,14 @@ alwaysErrorUnder under =
         }
 
 
-alwaysErrorWithWarning : { always : String, under : String } -> Review.Test.ExpectedError
-alwaysErrorWithWarning opts =
+alwaysErrorWithWarning : Review.Test.ExpectedError
+alwaysErrorWithWarning =
     Review.Test.error
         { message = "`always` is not allowed."
         , details =
             [ "You should replace this `always` with an anonymous function `\\_ ->`."
             , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
-            , "Caution: If `" ++ opts.always ++ "` does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
+            , "Caution: If this always does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
             ]
-        , under = opts.under
+        , under = "always"
         }

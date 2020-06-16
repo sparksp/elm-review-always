@@ -88,7 +88,7 @@ expressionVisitor (Node range node) =
 alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
 alwaysExpressionError ranges expression =
     if containsFunctionOrValue expression then
-        errorWithWarning ranges.always (expressionToString expression)
+        errorWithWarning ranges.always
 
     else
         errorWithFix ranges.always [ fixAlways ranges.application expression ]
@@ -105,8 +105,45 @@ containsFunctionOrValue (Node _ expression) =
                 Nothing ->
                     False
 
-        _ ->
+        Expression.ParenthesizedExpression next ->
+            containsFunctionOrValue next
+
+        Expression.Application list ->
+            List.any containsFunctionOrValue list
+
+        Expression.TupledExpression list ->
+            List.any containsFunctionOrValue list
+
+        Expression.ListExpr list ->
+            List.any containsFunctionOrValue list
+
+        Expression.OperatorApplication _ _ left right ->
+            List.any containsFunctionOrValue [ left, right ]
+
+        Expression.UnitExpr ->
             False
+
+        Expression.Floatable _ ->
+            False
+
+        Expression.Integer _ ->
+            False
+
+        Expression.Literal _ ->
+            False
+
+        Expression.Hex _ ->
+            False
+
+        Expression.Negation next ->
+            containsFunctionOrValue next
+
+        _ ->
+            let
+                _ =
+                    Debug.log "exp" expression
+            in
+            True
 
 
 fixAlways : Range -> Node Expression -> Fix
@@ -131,14 +168,14 @@ errorWithFix range fix =
         fix
 
 
-errorWithWarning : Range -> String -> Error {}
-errorWithWarning range function =
+errorWithWarning : Range -> Error {}
+errorWithWarning range =
     Rule.error
         { message = "`always` is not allowed."
         , details =
             [ "You should replace this `always` with an anonymous function `\\_ ->`."
             , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
-            , "Caution: If `" ++ function ++ "` does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
+            , "Caution: If this always does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
             ]
         }
         range
