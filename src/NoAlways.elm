@@ -8,9 +8,7 @@ module NoAlways exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Pattern as Pattern
-import Elm.Syntax.Range as Range exposing (Range)
-import Elm.Writer
+import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
