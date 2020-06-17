@@ -8,9 +8,7 @@ module NoAlways exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Pattern as Pattern
-import Elm.Syntax.Range as Range exposing (Range)
-import Elm.Writer
+import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
@@ -74,26 +72,117 @@ expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor (Node range node) =
     case node of
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
-            [ error alwaysRange [ fixAlways range expression ] ]
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression
+            ]
 
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
-            [ error alwaysRange [ fixAlways range expression ] ]
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression
+            ]
 
         _ ->
             []
 
 
-fixAlways : Range -> Node Expression -> Fix
-fixAlways range expression =
-    expression
-        |> applyLambda
-        |> applyBrackets
-        |> expressionToString
-        |> Fix.replaceRangeBy range
+alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
+alwaysExpressionError ranges expression =
+    if isConstantExpression expression then
+        errorWithFix ranges.always (fixAlways ranges expression)
+
+    else
+        errorWithWarning ranges.always
 
 
-error : Range -> List Fix -> Error {}
-error range fix =
+isConstantExpression : Node Expression -> Bool
+isConstantExpression (Node _ expression) =
+    case expression of
+        Expression.UnitExpr ->
+            True
+
+        Expression.Floatable _ ->
+            True
+
+        Expression.Integer _ ->
+            True
+
+        Expression.Literal _ ->
+            True
+
+        Expression.CharLiteral _ ->
+            True
+
+        Expression.Hex _ ->
+            True
+
+        Expression.RecordAccess _ _ ->
+            True
+
+        Expression.RecordAccessFunction _ ->
+            True
+
+        Expression.LambdaExpression _ ->
+            True
+
+        Expression.PrefixOperator _ ->
+            True
+
+        Expression.Operator _ ->
+            True
+
+        Expression.FunctionOrValue _ name ->
+            case String.uncons name of
+                Just ( start, _ ) ->
+                    Char.isUpper start
+
+                Nothing ->
+                    True
+
+        Expression.Negation next ->
+            isConstantExpression next
+
+        Expression.ParenthesizedExpression next ->
+            isConstantExpression next
+
+        Expression.Application list ->
+            List.all isConstantExpression list
+
+        Expression.TupledExpression list ->
+            List.all isConstantExpression list
+
+        Expression.ListExpr list ->
+            List.all isConstantExpression list
+
+        Expression.OperatorApplication _ _ left right ->
+            List.all isConstantExpression [ left, right ]
+
+        Expression.RecordExpr list ->
+            List.all (Node.value >> Tuple.second >> isConstantExpression) list
+
+        Expression.IfBlock _ _ _ ->
+            False
+
+        Expression.CaseExpression _ ->
+            False
+
+        Expression.LetExpression _ ->
+            False
+
+        Expression.RecordUpdateExpression _ _ ->
+            False
+
+        Expression.GLSLExpression _ ->
+            False
+
+
+fixAlways : { always : Range, application : Range } -> Node Expression -> List Fix
+fixAlways ranges expression =
+    [ Fix.insertAt ranges.application.end ")"
+    , Fix.replaceRangeBy ranges.always "\\_ ->"
+    , Fix.insertAt ranges.application.start "("
+    ]
+
+
+errorWithFix : Range -> List Fix -> Error {}
+errorWithFix range fix =
     Rule.errorWithFix
         { message = "`always` is not allowed."
         , details =
@@ -105,24 +194,14 @@ error range fix =
         fix
 
 
-applyLambda : Node Expression -> Node Expression
-applyLambda expression =
-    Expression.LambdaExpression
-        { args = [ Node.Node Range.emptyRange Pattern.AllPattern ]
-        , expression = expression
+errorWithWarning : Range -> Error {}
+errorWithWarning range =
+    Rule.error
+        { message = "`always` is not allowed."
+        , details =
+            [ "You should replace this `always` with an anonymous function `\\_ ->`."
+            , "It's more concise, more recognizable as a function, and makes it easier to change your mind later and name the argument."
+            , "Caution: If this always does some heavy computation then you may not want that within an anonymous function as the work will be done every time. Instead, do the calculation in a nearby let..in block first."
+            ]
         }
-        |> Node.Node Range.emptyRange
-
-
-applyBrackets : Node Expression -> Node Expression
-applyBrackets expression =
-    expression
-        |> Expression.ParenthesizedExpression
-        |> Node.Node Range.emptyRange
-
-
-expressionToString : Node Expression -> String
-expressionToString expression =
-    expression
-        |> Elm.Writer.writeExpression
-        |> Elm.Writer.write
+        range
