@@ -1,9 +1,9 @@
 {
   "name": "elm-review-always",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "elm-review rule to forbid always",
   "repository": "https://github.com/sparksp/elm-review-always",
-  "author": "Phill Sparks <me@phills.me.uk>",
+  "author": "Phill Sparks <me@phills.me.uk> (https://github.com/sparksp/)",
   "license": "MIT",
   "scripts": {
     "docs": "elm make --docs=docs.json",
