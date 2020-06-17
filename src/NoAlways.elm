@@ -9,7 +9,7 @@ module NoAlways exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Range.Extra as RangeExtra
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -121,7 +121,7 @@ alwaysExpressionError ranges expression =
             (fixAlways
                 { always = ranges.always
                 , application = ranges.application
-                , expression = expressionRange expression
+                , expression = Node.range expression
                 }
             )
 
@@ -239,17 +239,6 @@ fixAlways ranges =
             [ Fix.replaceRangeBy replaceRange ")"
             , Fix.insertAt ranges.application.start "(\\_ -> "
             ]
-
-
-expressionRange : Node Expression -> Range
-expressionRange expression =
-    case expression of
-        -- [ ] Remove this when elm-syntax v7.1.3 is released
-        Node _ (Expression.RecordAccess (Node startRange _) (Node endRange _)) ->
-            Range.combine [ startRange, endRange ]
-
-        Node range _ ->
-            range
 
 
 errorWithFix : Range -> List Fix -> Error {}
