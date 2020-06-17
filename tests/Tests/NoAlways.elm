@@ -279,6 +279,21 @@ module Foo exposing (foo)
 foo = (\\_ -> "foo")
 """
                     ]
+    , test "always Char" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always 'a'
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> 'a')
+"""
+                    ]
     , test "always Tuple" <|
         \() ->
             """
@@ -385,6 +400,64 @@ foo = always ( heavyComputation, 1.0 )
             """
 module Foo exposing (foo)
 foo = always -bar
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always operator functions includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always (bish + bosh)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always if includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always
+        (if bish then
+            bosh
+
+         else
+            bash
+        )
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always case includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always
+        (case bar of
+            Bish -> bish
+            Bosh -> bosh
+        )
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always with let includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always
+        (let
+             bar = heavyComputation
+         in
+         bar
+        )
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors

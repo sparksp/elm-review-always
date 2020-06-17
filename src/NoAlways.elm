@@ -105,6 +105,15 @@ containsFunctionOrValue (Node _ expression) =
                 Nothing ->
                     False
 
+        Expression.IfBlock _ _ _ ->
+            True
+
+        Expression.CaseExpression _ ->
+            True
+
+        Expression.LetExpression _ ->
+            True
+
         Expression.ParenthesizedExpression next ->
             containsFunctionOrValue next
 
@@ -130,6 +139,9 @@ containsFunctionOrValue (Node _ expression) =
             False
 
         Expression.Literal _ ->
+            False
+
+        Expression.CharLiteral _ ->
             False
 
         Expression.Hex _ ->
