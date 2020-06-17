@@ -7,8 +7,9 @@ module NoAlways exposing (rule)
 -}
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
@@ -71,22 +72,49 @@ rule =
 expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor (Node range node) =
     case node of
-        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression
-            ]
+        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue moduleName "always"), expression ] ->
+            if isAlwaysFunction moduleName "always" then
+                [ alwaysExpressionError { always = alwaysRange, application = range } expression
+                ]
 
-        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression
-            ]
+            else
+                []
+
+        Expression.OperatorApplication "<|" _ (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) expression ->
+            if isAlwaysFunction moduleName "always" then
+                [ alwaysExpressionError { always = alwaysRange, application = range } expression
+                ]
+
+            else
+                []
 
         _ ->
             []
 
 
+isAlwaysFunction : ModuleName -> String -> Bool
+isAlwaysFunction moduleName functionName =
+    case moduleName of
+        [] ->
+            True
+
+        [ "Basics" ] ->
+            True
+
+        _ ->
+            False
+
+
 alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
 alwaysExpressionError ranges expression =
     if isConstantExpression expression then
-        errorWithFix ranges.always (fixAlways ranges expression)
+        errorWithFix ranges.always
+            (fixAlways
+                { always = ranges.always
+                , application = ranges.application
+                , expression = expressionRange expression
+                }
+            )
 
     else
         errorWithWarning ranges.always
@@ -173,12 +201,29 @@ isConstantExpression (Node _ expression) =
             False
 
 
-fixAlways : { always : Range, application : Range } -> Node Expression -> List Fix
-fixAlways ranges expression =
+fixAlways : { always : Range, application : Range, expression : Range } -> List Fix
+fixAlways ranges =
+    let
+        replaceRange =
+            { start = ranges.always.start
+            , end = ranges.expression.start
+            }
+    in
     [ Fix.insertAt ranges.application.end ")"
-    , Fix.replaceRangeBy ranges.always "\\_ ->"
+    , Fix.replaceRangeBy replaceRange "\\_ -> "
     , Fix.insertAt ranges.application.start "("
     ]
+
+
+expressionRange : Node Expression -> Range
+expressionRange expression =
+    case expression of
+        -- [ ] Remove this when elm-syntax v7.1.3 is released
+        Node _ (Expression.RecordAccess (Node startRange _) (Node endRange _)) ->
+            Range.combine [ startRange, endRange ]
+
+        Node range _ ->
+            range
 
 
 errorWithFix : Range -> List Fix -> Error {}

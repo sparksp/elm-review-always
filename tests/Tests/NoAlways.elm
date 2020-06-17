@@ -11,6 +11,7 @@ all =
         [ describe "locations" locationTests
         , describe "types" typeTests
         , describe "functions" functionTests
+        , describe "pipes" pipeTests
         ]
 
 
@@ -105,22 +106,6 @@ foo =
     ( "foo", (\\_ -> "bar") )
 """
                     ]
-    , test "always pipe right" <|
-        \() ->
-            """
-module Foo exposing (foo)
-foo = "foo" |> always
-"""
-                |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
-    , test "always pipe left" <|
-        \() ->
-            """
-module Foo exposing (foo)
-foo = always <| heavyComputation "foo"
-"""
-                |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
     , test "Basics.always" <|
         \() ->
             """
@@ -387,8 +372,7 @@ foo =
                             """
 module Foo exposing (foo)
 foo =
-    (\\_ ->
-        { bish = 1
+    (\\_ -> { bish = 1
         , bash = 'c'
         , bosh = True
         })
@@ -578,6 +562,59 @@ foo model newValue =
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
+    ]
+
+
+pipeTests : List Test
+pipeTests =
+    [ test "always <| function is reported with warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always <| heavyComputation "foo"
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always <| constant is reported with fixes" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always <| "foo"
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> "foo")
+"""
+                    ]
+    , test "Basics.always <| constant is reported with fixes" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = Basics.always <| "foo"
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorUnder "Basics.always"
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> "foo")
+"""
+                    ]
+    , test "always pipe right" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = "foo" |> always
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
     ]
 
 
