@@ -91,7 +91,7 @@ alwaysExpressionError ranges expression =
         errorWithWarning ranges.always
 
     else
-        errorWithFix ranges.always [ fixAlways ranges.application expression ]
+        errorWithFix ranges.always (fixAlways ranges expression)
 
 
 containsFunctionOrValue : Node Expression -> Bool
@@ -114,6 +114,12 @@ containsFunctionOrValue (Node _ expression) =
         Expression.LetExpression _ ->
             True
 
+        Expression.RecordUpdateExpression _ _ ->
+            True
+
+        Expression.GLSLExpression _ ->
+            True
+
         Expression.ParenthesizedExpression next ->
             containsFunctionOrValue next
 
@@ -128,6 +134,9 @@ containsFunctionOrValue (Node _ expression) =
 
         Expression.OperatorApplication _ _ left right ->
             List.any containsFunctionOrValue [ left, right ]
+
+        Expression.RecordExpr list ->
+            List.any (Node.value >> Tuple.second >> containsFunctionOrValue) list
 
         Expression.UnitExpr ->
             False
@@ -147,24 +156,31 @@ containsFunctionOrValue (Node _ expression) =
         Expression.Hex _ ->
             False
 
+        Expression.RecordAccess _ _ ->
+            False
+
+        Expression.RecordAccessFunction _ ->
+            False
+
         Expression.Negation next ->
             containsFunctionOrValue next
 
-        _ ->
-            let
-                _ =
-                    Debug.log "exp" expression
-            in
-            True
+        Expression.LambdaExpression _ ->
+            False
+
+        Expression.PrefixOperator _ ->
+            False
+
+        Expression.Operator _ ->
+            False
 
 
-fixAlways : Range -> Node Expression -> Fix
-fixAlways range expression =
-    expression
-        |> applyLambda
-        |> applyBrackets
-        |> expressionToString
-        |> Fix.replaceRangeBy range
+fixAlways : { always : Range, application : Range } -> Node Expression -> List Fix
+fixAlways ranges expression =
+    [ Fix.insertAt ranges.application.end ")"
+    , Fix.replaceRangeBy ranges.always "\\_ ->"
+    , Fix.insertAt ranges.application.start "("
+    ]
 
 
 errorWithFix : Range -> List Fix -> Error {}
@@ -191,26 +207,3 @@ errorWithWarning range =
             ]
         }
         range
-
-
-applyLambda : Node Expression -> Node Expression
-applyLambda expression =
-    Expression.LambdaExpression
-        { args = [ Node.Node Range.emptyRange Pattern.AllPattern ]
-        , expression = expression
-        }
-        |> Node.Node Range.emptyRange
-
-
-applyBrackets : Node Expression -> Node Expression
-applyBrackets expression =
-    expression
-        |> Expression.ParenthesizedExpression
-        |> Node.Node Range.emptyRange
-
-
-expressionToString : Node Expression -> String
-expressionToString expression =
-    expression
-        |> Elm.Writer.writeExpression
-        |> Elm.Writer.write

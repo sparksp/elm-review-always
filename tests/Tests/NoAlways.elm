@@ -159,6 +159,36 @@ module Foo exposing (foo)
 foo = always ((\\_ -> True))
 """
                     ]
+    , test "always lambda" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always ((\\_ -> True))
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> ((\\_ -> True)))
+"""
+                    ]
+    , test "always prefix operator" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always (+)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> (+))
+"""
+                    ]
     , test "always Bool" <|
         \() ->
             """
@@ -306,7 +336,7 @@ foo = always ( "foo", "bar" )
                         |> Review.Test.whenFixed
                             """
 module Foo exposing (foo)
-foo = (\\_ -> ("foo", "bar"))
+foo = (\\_ -> ( "foo", "bar" ))
 """
                     ]
     , test "always Unit" <|
@@ -337,6 +367,65 @@ foo = always (1 + 2)
                             """
 module Foo exposing (foo)
 foo = (\\_ -> (1 + 2))
+"""
+                    ]
+    , test "always Record of constants" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always
+        { bish = 1
+        , bash = 'c'
+        , bosh = True
+        }
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo =
+    (\\_ ->
+        { bish = 1
+        , bash = 'c'
+        , bosh = True
+        })
+"""
+                    ]
+    , test "always Record access" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo record =
+    always record.value
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo record =
+    (\\_ -> record.value)
+"""
+                    ]
+    , test "always Record access function" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always .value
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo =
+    (\\_ -> .value)
 """
                     ]
     ]
@@ -458,6 +547,32 @@ foo =
          in
          bar
         )
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always with Record of functions" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo =
+    always
+        { bish = 1
+        , bash = 'c'
+        , bosh = bar
+        }
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "always record update" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo model newValue =
+    always { model | value = newValue }
 """
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
