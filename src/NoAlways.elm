@@ -85,91 +85,91 @@ expressionVisitor (Node range node) =
 
 alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
 alwaysExpressionError ranges expression =
-    if containsFunctionOrValue expression then
-        errorWithWarning ranges.always
-
-    else
+    if isConstantExpression expression then
         errorWithFix ranges.always (fixAlways ranges expression)
 
+    else
+        errorWithWarning ranges.always
 
-containsFunctionOrValue : Node Expression -> Bool
-containsFunctionOrValue (Node _ expression) =
+
+isConstantExpression : Node Expression -> Bool
+isConstantExpression (Node _ expression) =
     case expression of
+        Expression.UnitExpr ->
+            True
+
+        Expression.Floatable _ ->
+            True
+
+        Expression.Integer _ ->
+            True
+
+        Expression.Literal _ ->
+            True
+
+        Expression.CharLiteral _ ->
+            True
+
+        Expression.Hex _ ->
+            True
+
+        Expression.RecordAccess _ _ ->
+            True
+
+        Expression.RecordAccessFunction _ ->
+            True
+
+        Expression.LambdaExpression _ ->
+            True
+
+        Expression.PrefixOperator _ ->
+            True
+
+        Expression.Operator _ ->
+            True
+
         Expression.FunctionOrValue _ name ->
             case String.uncons name of
                 Just ( start, _ ) ->
-                    Char.isLower start
+                    Char.isUpper start
 
                 Nothing ->
-                    False
-
-        Expression.IfBlock _ _ _ ->
-            True
-
-        Expression.CaseExpression _ ->
-            True
-
-        Expression.LetExpression _ ->
-            True
-
-        Expression.RecordUpdateExpression _ _ ->
-            True
-
-        Expression.GLSLExpression _ ->
-            True
-
-        Expression.ParenthesizedExpression next ->
-            containsFunctionOrValue next
-
-        Expression.Application list ->
-            List.any containsFunctionOrValue list
-
-        Expression.TupledExpression list ->
-            List.any containsFunctionOrValue list
-
-        Expression.ListExpr list ->
-            List.any containsFunctionOrValue list
-
-        Expression.OperatorApplication _ _ left right ->
-            List.any containsFunctionOrValue [ left, right ]
-
-        Expression.RecordExpr list ->
-            List.any (Node.value >> Tuple.second >> containsFunctionOrValue) list
-
-        Expression.UnitExpr ->
-            False
-
-        Expression.Floatable _ ->
-            False
-
-        Expression.Integer _ ->
-            False
-
-        Expression.Literal _ ->
-            False
-
-        Expression.CharLiteral _ ->
-            False
-
-        Expression.Hex _ ->
-            False
-
-        Expression.RecordAccess _ _ ->
-            False
-
-        Expression.RecordAccessFunction _ ->
-            False
+                    True
 
         Expression.Negation next ->
-            containsFunctionOrValue next
+            isConstantExpression next
 
-        Expression.LambdaExpression _ ->
+        Expression.ParenthesizedExpression next ->
+            isConstantExpression next
+
+        Expression.Application list ->
+            List.all isConstantExpression list
+
+        Expression.TupledExpression list ->
+            List.all isConstantExpression list
+
+        Expression.ListExpr list ->
+            List.all isConstantExpression list
+
+        Expression.OperatorApplication _ _ left right ->
+            List.all isConstantExpression [ left, right ]
+
+        Expression.RecordExpr list ->
+            List.all (Node.value >> Tuple.second >> isConstantExpression) list
+
+        Expression.IfBlock _ _ _ ->
             False
 
-        Expression.PrefixOperator _ ->
+        Expression.CaseExpression _ ->
             False
 
-        Expression.Operator _ ->
+        Expression.LetExpression _ ->
+            False
+
+        Expression.RecordUpdateExpression _ _ ->
+            False
+
+        Expression.GLSLExpression _ ->
             False
 
 
