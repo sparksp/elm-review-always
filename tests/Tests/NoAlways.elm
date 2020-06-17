@@ -339,21 +339,6 @@ module Foo exposing (foo)
 foo = (\\_ -> ())
 """
                     ]
-    , test "always Operator" <|
-        \() ->
-            """
-module Foo exposing (foo)
-foo = always (1 + 2)
-"""
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ alwaysError
-                        |> Review.Test.whenFixed
-                            """
-module Foo exposing (foo)
-foo = (\\_ -> (1 + 2))
-"""
-                    ]
     , test "always Record of constants" <|
         \() ->
             """
@@ -478,6 +463,16 @@ foo = always -bar
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
+    , test "always operators functions with constants includes extra warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always (1 + 2)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
     , test "always operator functions includes extra warning" <|
         \() ->
             """
@@ -592,6 +587,16 @@ module Foo exposing (foo)
 foo = (\\_ -> "foo")
 """
                     ]
+    , test "always <| function <| constant is reported with warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = always <| (+) 1 <| 1
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
     , test "Basics.always <| constant is reported with fixes" <|
         \() ->
             """
@@ -607,14 +612,66 @@ module Foo exposing (foo)
 foo = (\\_ -> "foo")
 """
                     ]
-    , test "always pipe right" <|
+    , test "function |> always is reported with warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = heavyComputation "foo" |> always
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "constant |> always is reported with fixes" <|
         \() ->
             """
 module Foo exposing (foo)
 foo = "foo" |> always
 """
                 |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
+                |> Review.Test.expectErrors
+                    [ alwaysError
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> "foo")
+"""
+                    ]
+    , test "function |> function |> always is reported with warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = "foo" |> computation |> moreComputation |> always
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "constant |> function |> always is reported with warning" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = 1 |> (+) 1 |> always
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorWithWarning
+                    ]
+    , test "constant |> Basics.always is reported with fixes" <|
+        \() ->
+            """
+module Foo exposing (foo)
+foo = "foo" |> Basics.always
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorUnder "Basics.always"
+                        |> Review.Test.whenFixed
+                            """
+module Foo exposing (foo)
+foo = (\\_ -> "foo")
+"""
+                    ]
     ]
 
 
