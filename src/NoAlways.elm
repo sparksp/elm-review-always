@@ -7,8 +7,10 @@ module NoAlways exposing (rule)
 -}
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range.Extra as RangeExtra
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
 
@@ -71,22 +73,57 @@ rule =
 expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor (Node range node) =
     case node of
-        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [] "always"), expression ] ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression
-            ]
+        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue moduleName "always"), expression ] ->
+            if isAlwaysFunction moduleName "always" then
+                [ alwaysExpressionError { always = alwaysRange, application = range } expression
+                ]
 
-        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue [ "Basics" ] "always"), expression ] ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression
-            ]
+            else
+                []
+
+        Expression.OperatorApplication "<|" _ (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) expression ->
+            if isAlwaysFunction moduleName "always" then
+                [ alwaysExpressionError { always = alwaysRange, application = range } expression
+                ]
+
+            else
+                []
+
+        Expression.OperatorApplication "|>" _ expression (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) ->
+            if isAlwaysFunction moduleName "always" then
+                [ alwaysExpressionError { always = alwaysRange, application = range } expression
+                ]
+
+            else
+                []
 
         _ ->
             []
 
 
+isAlwaysFunction : ModuleName -> String -> Bool
+isAlwaysFunction moduleName functionName =
+    case moduleName of
+        [] ->
+            True
+
+        [ "Basics" ] ->
+            True
+
+        _ ->
+            False
+
+
 alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
 alwaysExpressionError ranges expression =
     if isConstantExpression expression then
-        errorWithFix ranges.always (fixAlways ranges expression)
+        errorWithFix ranges.always
+            (fixAlways
+                { always = ranges.always
+                , application = ranges.application
+                , expression = Node.range expression
+                }
+            )
 
     else
         errorWithWarning ranges.always
@@ -136,14 +173,19 @@ isConstantExpression (Node _ expression) =
                 Nothing ->
                     True
 
+        Expression.Application list ->
+            case list of
+                (Node _ (Expression.FunctionOrValue _ name)) :: _ ->
+                    List.all isConstantExpression list
+
+                _ ->
+                    False
+
         Expression.Negation next ->
             isConstantExpression next
 
         Expression.ParenthesizedExpression next ->
             isConstantExpression next
-
-        Expression.Application list ->
-            List.all isConstantExpression list
 
         Expression.TupledExpression list ->
             List.all isConstantExpression list
@@ -151,11 +193,11 @@ isConstantExpression (Node _ expression) =
         Expression.ListExpr list ->
             List.all isConstantExpression list
 
-        Expression.OperatorApplication _ _ left right ->
-            List.all isConstantExpression [ left, right ]
-
         Expression.RecordExpr list ->
             List.all (Node.value >> Tuple.second >> isConstantExpression) list
+
+        Expression.OperatorApplication _ _ _ _ ->
+            False
 
         Expression.IfBlock _ _ _ ->
             False
@@ -173,12 +215,30 @@ isConstantExpression (Node _ expression) =
             False
 
 
-fixAlways : { always : Range, application : Range } -> Node Expression -> List Fix
-fixAlways ranges expression =
-    [ Fix.insertAt ranges.application.end ")"
-    , Fix.replaceRangeBy ranges.always "\\_ ->"
-    , Fix.insertAt ranges.application.start "("
-    ]
+fixAlways : { always : Range, application : Range, expression : Range } -> List Fix
+fixAlways ranges =
+    case RangeExtra.compare ranges.always ranges.expression of
+        LT ->
+            let
+                replaceRange =
+                    { start = ranges.always.start
+                    , end = ranges.expression.start
+                    }
+            in
+            [ Fix.insertAt ranges.application.end ")"
+            , Fix.replaceRangeBy replaceRange "(\\_ -> "
+            ]
+
+        _ ->
+            let
+                replaceRange =
+                    { start = ranges.expression.end
+                    , end = ranges.always.end
+                    }
+            in
+            [ Fix.replaceRangeBy replaceRange ")"
+            , Fix.insertAt ranges.application.start "(\\_ -> "
+            ]
 
 
 errorWithFix : Range -> List Fix -> Error {}
