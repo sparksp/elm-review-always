@@ -12,7 +12,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Range.Extra as RangeExtra
 import Review.Fix as Fix exposing (Fix)
-import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Rule)
 
 
 {-| Forbid the use of [`always`](https://package.elm-lang.org/packages/elm/core/latest/Basics#always).
@@ -70,7 +70,7 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> List (Error {})
+expressionVisitor : Node Expression -> List (Rule.Error {})
 expressionVisitor (Node range node) =
     case node of
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue moduleName "always"), expression ] ->
@@ -114,7 +114,7 @@ isAlwaysFunction moduleName functionName =
             False
 
 
-alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Error {}
+alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Rule.Error {}
 alwaysExpressionError ranges expression =
     if isConstantExpression expression then
         errorWithFix ranges.always
@@ -241,7 +241,7 @@ fixAlways ranges =
             ]
 
 
-errorWithFix : Range -> List Fix -> Error {}
+errorWithFix : Range -> List Fix -> Rule.Error {}
 errorWithFix range fix =
     Rule.errorWithFix
         { message = "`always` is not allowed."
@@ -254,7 +254,7 @@ errorWithFix range fix =
         fix
 
 
-errorWithWarning : Range -> Error {}
+errorWithWarning : Range -> Rule.Error {}
 errorWithWarning range =
     Rule.error
         { message = "`always` is not allowed."
