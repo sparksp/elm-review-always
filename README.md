@@ -1,4 +1,4 @@
-# review-always
+# elm-review-always
 
 ![elm package](https://img.shields.io/elm-package/v/sparksp/elm-review-always)
 ![elm-review 2.0](https://img.shields.io/badge/elm--review-2.0-%231293D8)
@@ -61,3 +61,12 @@ List.map ((\value _ -> value) (heavyComputation arg1 arg2)) [ 1, 2, 3, 4 ]
 ```
 
 [let-expression]: https://elm-lang.org/docs/syntax#let-expressions
+
+
+## Try it out
+
+You can try the example configuration above out by running the following command:
+
+```bash
+elm-review --template sparksp/elm-review-always/example
+```

@@ -74,7 +74,7 @@ expressionVisitor : Node Expression -> List (Rule.Error {})
 expressionVisitor (Node range node) =
     case node of
         Expression.Application [ Node alwaysRange (Expression.FunctionOrValue moduleName "always"), expression ] ->
-            if isAlwaysFunction moduleName "always" then
+            if isAlwaysFunction moduleName then
                 [ alwaysExpressionError { always = alwaysRange, application = range } expression
                 ]
 
@@ -82,7 +82,7 @@ expressionVisitor (Node range node) =
                 []
 
         Expression.OperatorApplication "<|" _ (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) expression ->
-            if isAlwaysFunction moduleName "always" then
+            if isAlwaysFunction moduleName then
                 [ alwaysExpressionError { always = alwaysRange, application = range } expression
                 ]
 
@@ -90,7 +90,7 @@ expressionVisitor (Node range node) =
                 []
 
         Expression.OperatorApplication "|>" _ expression (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) ->
-            if isAlwaysFunction moduleName "always" then
+            if isAlwaysFunction moduleName then
                 [ alwaysExpressionError { always = alwaysRange, application = range } expression
                 ]
 
@@ -101,8 +101,8 @@ expressionVisitor (Node range node) =
             []
 
 
-isAlwaysFunction : ModuleName -> String -> Bool
-isAlwaysFunction moduleName functionName =
+isAlwaysFunction : ModuleName -> Bool
+isAlwaysFunction moduleName =
     case moduleName of
         [] ->
             True
@@ -175,7 +175,7 @@ isConstantExpression (Node _ expression) =
 
         Expression.Application list ->
             case list of
-                (Node _ (Expression.FunctionOrValue _ name)) :: _ ->
+                (Node _ (Expression.FunctionOrValue _ _)) :: _ ->
                     List.all isConstantExpression list
 
                 _ ->
@@ -220,6 +220,7 @@ fixAlways ranges =
     case RangeExtra.compare ranges.always ranges.expression of
         LT ->
             let
+                replaceRange : Range
                 replaceRange =
                     { start = ranges.always.start
                     , end = ranges.expression.start
@@ -231,6 +232,7 @@ fixAlways ranges =
 
         _ ->
             let
+                replaceRange : Range
                 replaceRange =
                     { start = ranges.expression.end
                     , end = ranges.always.end
