@@ -7,7 +7,8 @@
     "lint": "run-s lint:* ;",
     "test:elm": "elm-test",
     "test:package": "node elm-review-package-tests/check-previews-compile.js",
-    "test": "run-s test:* ;"
+    "test": "run-s test:* ;",
+    "all": "run-s lint:* test:* docs ;"
   },
   "dependencies": {
     "elm": "^0.19.1-3",
