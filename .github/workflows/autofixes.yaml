@@ -36,7 +36,7 @@ jobs:
         run: elm-format --yes
       - name: Apply elm-review fixes
         id: elm-review
-        run: yes | elm-review --fix-all
+        run: elm-review --fix-all-without-prompt
         continue-on-error: true
       - uses: peter-evans/create-pull-request@v2
         with:
