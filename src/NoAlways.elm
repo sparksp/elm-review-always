@@ -7,7 +7,6 @@ module NoAlways exposing (rule)
 -}
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Range.Extra as RangeExtra
@@ -73,146 +72,144 @@ rule =
 expressionVisitor : Node Expression -> List (Rule.Error {})
 expressionVisitor (Node range node) =
     case node of
-        Expression.Application [ Node alwaysRange (Expression.FunctionOrValue moduleName "always"), expression ] ->
-            if isAlwaysFunction moduleName then
-                [ alwaysExpressionError { always = alwaysRange, application = range } expression
-                ]
+        Expression.Application [ maybeAlwaysExpression, expression ] ->
+            alwaysExpressionErrors maybeAlwaysExpression expression range
 
-            else
-                []
+        Expression.OperatorApplication "<|" _ maybeAlwaysExpression expression ->
+            alwaysExpressionErrors maybeAlwaysExpression expression range
 
-        Expression.OperatorApplication "<|" _ (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) expression ->
-            if isAlwaysFunction moduleName then
-                [ alwaysExpressionError { always = alwaysRange, application = range } expression
-                ]
-
-            else
-                []
-
-        Expression.OperatorApplication "|>" _ expression (Node alwaysRange (Expression.FunctionOrValue moduleName "always")) ->
-            if isAlwaysFunction moduleName then
-                [ alwaysExpressionError { always = alwaysRange, application = range } expression
-                ]
-
-            else
-                []
+        Expression.OperatorApplication "|>" _ expression maybeAlwaysExpression ->
+            alwaysExpressionErrors maybeAlwaysExpression expression range
 
         _ ->
             []
 
 
-isAlwaysFunction : ModuleName -> Bool
-isAlwaysFunction moduleName =
-    case moduleName of
-        [] ->
-            True
+alwaysExpressionErrors : Node Expression -> Node Expression -> Range -> List (Rule.Error {})
+alwaysExpressionErrors (Node alwaysRange alwaysExpression) expression range =
+    case alwaysExpression of
+        Expression.FunctionOrValue [] "always" ->
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression ]
 
-        [ "Basics" ] ->
-            True
+        Expression.FunctionOrValue [ "Basics" ] "always" ->
+            [ alwaysExpressionError { always = alwaysRange, application = range } expression ]
 
         _ ->
-            False
+            []
 
 
 alwaysExpressionError : { always : Range, application : Range } -> Node Expression -> Rule.Error {}
 alwaysExpressionError ranges expression =
-    if isConstantExpression expression then
-        errorWithFix ranges.always
-            (fixAlways
-                { always = ranges.always
-                , application = ranges.application
-                , expression = Node.range expression
-                }
-            )
+    case getConstantExpressionRange expression of
+        Just expressionRange ->
+            errorWithFix ranges.always
+                (fixAlways
+                    { always = ranges.always
+                    , application = ranges.application
+                    , expression = expressionRange
+                    }
+                )
 
-    else
-        errorWithWarning ranges.always
+        Nothing ->
+            errorWithWarning ranges.always
 
 
-isConstantExpression : Node Expression -> Bool
-isConstantExpression (Node _ expression) =
+getConstantExpressionRange : Node Expression -> Maybe Range
+getConstantExpressionRange (Node range expression) =
     case expression of
         Expression.UnitExpr ->
-            True
+            Just range
 
         Expression.Floatable _ ->
-            True
+            Just range
 
         Expression.Integer _ ->
-            True
+            Just range
 
         Expression.Literal _ ->
-            True
+            Just range
 
         Expression.CharLiteral _ ->
-            True
+            Just range
 
         Expression.Hex _ ->
-            True
+            Just range
 
         Expression.RecordAccess _ _ ->
-            True
+            Just range
 
         Expression.RecordAccessFunction _ ->
-            True
+            Just range
 
         Expression.LambdaExpression _ ->
-            True
+            Just range
 
         Expression.PrefixOperator _ ->
-            True
+            Just range
 
         Expression.Operator _ ->
-            True
+            Just range
 
         Expression.FunctionOrValue _ name ->
-            case String.uncons name of
-                Just ( start, _ ) ->
-                    Char.isUpper start
+            String.uncons name
+                |> Maybe.andThen
+                    (\( start, _ ) ->
+                        if Char.isUpper start then
+                            Just range
 
-                Nothing ->
-                    True
+                        else
+                            Nothing
+                    )
 
         Expression.Application list ->
             case list of
                 (Node _ (Expression.FunctionOrValue _ _)) :: _ ->
-                    List.all isConstantExpression list
+                    List.foldr foldConstantExpression (Just range) list
 
                 _ ->
-                    False
+                    Nothing
 
         Expression.Negation next ->
-            isConstantExpression next
+            getConstantExpressionRange next
+                |> Maybe.map (\_ -> range)
 
         Expression.ParenthesizedExpression next ->
-            isConstantExpression next
+            getConstantExpressionRange next
+                |> Maybe.map (\_ -> range)
 
         Expression.TupledExpression list ->
-            List.all isConstantExpression list
+            List.foldr foldConstantExpression (Just range) list
 
         Expression.ListExpr list ->
-            List.all isConstantExpression list
+            List.foldr foldConstantExpression (Just range) list
 
         Expression.RecordExpr list ->
-            List.all (Node.value >> Tuple.second >> isConstantExpression) list
+            List.map (Node.value >> Tuple.second) list
+                |> List.foldr foldConstantExpression (Just range)
 
         Expression.OperatorApplication _ _ _ _ ->
-            False
+            Nothing
 
         Expression.IfBlock _ _ _ ->
-            False
+            Nothing
 
         Expression.CaseExpression _ ->
-            False
+            Nothing
 
         Expression.LetExpression _ ->
-            False
+            Nothing
 
         Expression.RecordUpdateExpression _ _ ->
-            False
+            Nothing
 
         Expression.GLSLExpression _ ->
-            False
+            Nothing
+
+
+foldConstantExpression : Node Expression -> Maybe Range -> Maybe Range
+foldConstantExpression node acc =
+    getConstantExpressionRange node
+        |> Maybe.andThen (\_ -> acc)
 
 
 fixAlways : { always : Range, application : Range, expression : Range } -> List Fix
