@@ -1,6 +1,10 @@
 module Tests.NoAlways exposing (all)
 
+import Dependencies.ElmCore
+import Elm.Project
+import Json.Decode as Decode
 import NoAlways exposing (rule)
+import Review.Project as Project exposing (Project)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -24,7 +28,7 @@ module Main exposing (main)
 import Foo exposing (foo)
 main = foo (always "foo")
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -41,7 +45,7 @@ module Foo exposing (foo)
 foo =
     [ "foo", always "bar" ]
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -58,7 +62,7 @@ module Foo exposing (foo)
 foo =
     List.map (always 0) [ 1, 2, 3, 4 ]
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -77,7 +81,7 @@ foo =
     , bar = always "bar"
     }
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -96,7 +100,7 @@ module Foo exposing (foo)
 foo =
     ( "foo", always "bar" )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -112,12 +116,38 @@ foo =
 module A exposing (..)
 foo = Basics.always 1
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorUnder "Basics.always"
                         |> Review.Test.whenFixed
                             """
 module A exposing (..)
+foo = (\\_ -> 1)
+"""
+                    ]
+    , test "shadow always" <|
+        \() ->
+            """
+module A exposing (..)
+always a = a
+foo = always 1
+"""
+                |> Review.Test.runWithProjectData project rule
+                |> Review.Test.expectNoErrors
+    , test "alias Basics.always" <|
+        \() ->
+            """
+module A exposing (..)
+import Basics as Core
+foo = Core.always 1
+"""
+                |> Review.Test.runWithProjectData project rule
+                |> Review.Test.expectErrors
+                    [ alwaysErrorUnder "Core.always"
+                        |> Review.Test.whenFixed
+                            """
+module A exposing (..)
+import Basics as Core
 foo = (\\_ -> 1)
 """
                     ]
@@ -132,7 +162,7 @@ typeTests =
 module Foo exposing (foo)
 foo = always (always True)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                         |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 13 } }
@@ -150,7 +180,7 @@ foo = always ((\\_ -> True))
 module Foo exposing (foo)
 foo = always ((\\_ -> True))
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -165,7 +195,7 @@ foo = (\\_ -> ((\\_ -> True)))
 module Foo exposing (foo)
 foo = always (+)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -180,7 +210,7 @@ foo = (\\_ -> (+))
 module Foo exposing (foo)
 foo = always True
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -195,7 +225,7 @@ foo = (\\_ -> True)
 module Foo exposing (foo)
 foo = always 4.2
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -210,7 +240,7 @@ foo = (\\_ -> 4.2)
 module Foo exposing (foo)
 foo = always 42
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -225,7 +255,7 @@ foo = (\\_ -> 42)
 module Foo exposing (foo)
 foo = always 0x42
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -240,7 +270,7 @@ foo = (\\_ -> 0x42)
 module Foo exposing (foo)
 foo = always -42
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -255,7 +285,7 @@ foo = (\\_ -> -42)
 module Foo exposing (foo)
 foo = always [1, 2, 3]
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -270,7 +300,7 @@ foo = (\\_ -> [1, 2, 3])
 module Foo exposing (foo)
 foo = always (Just 42)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -285,7 +315,7 @@ foo = (\\_ -> (Just 42))
 module Foo exposing (foo)
 foo = always "foo"
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -300,7 +330,7 @@ foo = (\\_ -> "foo")
 module Foo exposing (foo)
 foo = always 'a'
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -315,7 +345,7 @@ foo = (\\_ -> 'a')
 module Foo exposing (foo)
 foo = always ( "foo", "bar" )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -330,7 +360,7 @@ foo = (\\_ -> ( "foo", "bar" ))
 module Foo exposing (foo)
 foo = always ()
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -350,7 +380,7 @@ foo =
         , bosh = True
         }
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -370,7 +400,7 @@ module Foo exposing (foo)
 foo record =
     always record.value
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -387,7 +417,7 @@ module Foo exposing (foo)
 foo =
     always .value
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -408,7 +438,7 @@ functionTests =
 module Foo exposing (foo)
 foo = always heavyComputation
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -419,7 +449,7 @@ module Foo exposing (foo)
 import Bar
 foo = always Bar.heavyComputation
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -429,7 +459,7 @@ foo = always Bar.heavyComputation
 module Foo exposing (foo)
 foo = always (Just heavyComputation)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -439,7 +469,7 @@ foo = always (Just heavyComputation)
 module Foo exposing (foo)
 foo = always [ heavyComputation ]
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -449,7 +479,7 @@ foo = always [ heavyComputation ]
 module Foo exposing (foo)
 foo = always ( heavyComputation, 1.0 )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -459,7 +489,7 @@ foo = always ( heavyComputation, 1.0 )
 module Foo exposing (foo)
 foo = always -bar
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -469,7 +499,7 @@ foo = always -bar
 module Foo exposing (foo)
 foo = always (1 + 2)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -479,7 +509,7 @@ foo = always (1 + 2)
 module Foo exposing (foo)
 foo = always (bish + bosh)
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -496,7 +526,7 @@ foo =
             bash
         )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -511,7 +541,7 @@ foo =
             Bosh -> bosh
         )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -527,7 +557,7 @@ foo =
          bar
         )
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -542,7 +572,7 @@ foo =
         , bosh = bar
         }
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -553,7 +583,7 @@ module Foo exposing (foo)
 foo model newValue =
     always { model | value = newValue }
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -568,7 +598,7 @@ pipeTests =
 module Foo exposing (foo)
 foo = always <| heavyComputation "foo"
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -578,7 +608,7 @@ foo = always <| heavyComputation "foo"
 module Foo exposing (foo)
 foo = always <| "foo"
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -593,7 +623,7 @@ foo = (\\_ -> "foo")
 module Foo exposing (foo)
 foo = always <| (+) 1 <| 1
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -603,7 +633,7 @@ foo = always <| (+) 1 <| 1
 module Foo exposing (foo)
 foo = Basics.always <| "foo"
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorUnder "Basics.always"
                         |> Review.Test.whenFixed
@@ -618,7 +648,7 @@ foo = (\\_ -> "foo")
 module Foo exposing (foo)
 foo = heavyComputation "foo" |> always
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -628,7 +658,7 @@ foo = heavyComputation "foo" |> always
 module Foo exposing (foo)
 foo = "foo" |> always
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysError
                         |> Review.Test.whenFixed
@@ -643,7 +673,7 @@ foo = (\\_ -> "foo")
 module Foo exposing (foo)
 foo = "foo" |> computation |> moreComputation |> always
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -653,7 +683,7 @@ foo = "foo" |> computation |> moreComputation |> always
 module Foo exposing (foo)
 foo = 1 |> (+) 1 |> always
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorWithWarning
                     ]
@@ -663,7 +693,7 @@ foo = 1 |> (+) 1 |> always
 module Foo exposing (foo)
 foo = "foo" |> Basics.always
 """
-                |> Review.Test.run rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrors
                     [ alwaysErrorUnder "Basics.always"
                         |> Review.Test.whenFixed
@@ -703,3 +733,49 @@ alwaysErrorWithWarning =
             ]
         , under = "always"
         }
+
+
+
+--- TEST PROJECT DATA
+
+
+project : Project
+project =
+    Project.new
+        |> Project.addElmJson (createElmJson applicationElmJson)
+        |> Project.addDependency Dependencies.ElmCore.dependency
+
+
+createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+createElmJson rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok elmJson ->
+            { path = "elm.json"
+            , raw = rawElmJson
+            , project = elmJson
+            }
+
+        Err err ->
+            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
+
+
+applicationElmJson : String
+applicationElmJson =
+    """
+{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.5"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
