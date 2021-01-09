@@ -70,30 +70,26 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-type Context
-    = Context ModuleNameLookupTable ()
-
-
-contextCreator : Rule.ContextCreator () Context
+contextCreator : Rule.ContextCreator () ModuleNameLookupTable
 contextCreator =
-    Rule.initContextCreator Context
+    Rule.initContextCreator (\lookupTable _ -> lookupTable)
         |> Rule.withModuleNameLookupTable
 
 
-expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionVisitor (Node range node) ((Context lookupTable ()) as context) =
+expressionVisitor : Node Expression -> ModuleNameLookupTable -> ( List (Rule.Error {}), ModuleNameLookupTable )
+expressionVisitor (Node range node) lookupTable =
     case node of
         Expression.Application [ maybeAlwaysExpression, expression ] ->
-            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, context )
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         Expression.OperatorApplication "<|" _ maybeAlwaysExpression expression ->
-            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, context )
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         Expression.OperatorApplication "|>" _ expression maybeAlwaysExpression ->
-            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, context )
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         _ ->
-            ( [], context )
+            ( [], lookupTable )
 
 
 alwaysExpressionErrors : ModuleNameLookupTable -> Node Expression -> Node Expression -> Range -> List (Rule.Error {})
