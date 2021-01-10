@@ -11,6 +11,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Range.Extra as RangeExtra
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -64,35 +65,43 @@ If the value you always want is the result of some heavy computation then you wi
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoAlways" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoNothingToNothing" contextCreator
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> List (Rule.Error {})
-expressionVisitor (Node range node) =
+contextCreator : Rule.ContextCreator () ModuleNameLookupTable
+contextCreator =
+    Rule.initContextCreator (\lookupTable _ -> lookupTable)
+        |> Rule.withModuleNameLookupTable
+
+
+expressionVisitor : Node Expression -> ModuleNameLookupTable -> ( List (Rule.Error {}), ModuleNameLookupTable )
+expressionVisitor (Node range node) lookupTable =
     case node of
         Expression.Application [ maybeAlwaysExpression, expression ] ->
-            alwaysExpressionErrors maybeAlwaysExpression expression range
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         Expression.OperatorApplication "<|" _ maybeAlwaysExpression expression ->
-            alwaysExpressionErrors maybeAlwaysExpression expression range
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         Expression.OperatorApplication "|>" _ expression maybeAlwaysExpression ->
-            alwaysExpressionErrors maybeAlwaysExpression expression range
+            ( alwaysExpressionErrors lookupTable maybeAlwaysExpression expression range, lookupTable )
 
         _ ->
-            []
+            ( [], lookupTable )
 
 
-alwaysExpressionErrors : Node Expression -> Node Expression -> Range -> List (Rule.Error {})
-alwaysExpressionErrors (Node alwaysRange alwaysExpression) expression range =
-    case alwaysExpression of
-        Expression.FunctionOrValue [] "always" ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression ]
+alwaysExpressionErrors : ModuleNameLookupTable -> Node Expression -> Node Expression -> Range -> List (Rule.Error {})
+alwaysExpressionErrors lookupTable alwaysExpression expression range =
+    case Node.value alwaysExpression of
+        Expression.FunctionOrValue _ "always" ->
+            case ModuleNameLookupTable.moduleNameFor lookupTable alwaysExpression of
+                Just [ "Basics" ] ->
+                    [ alwaysExpressionError { always = Node.range alwaysExpression, application = range } expression ]
 
-        Expression.FunctionOrValue [ "Basics" ] "always" ->
-            [ alwaysExpressionError { always = alwaysRange, application = range } expression ]
+                _ ->
+                    []
 
         _ ->
             []
