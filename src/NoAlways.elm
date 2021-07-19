@@ -179,12 +179,10 @@ getConstantExpressionRange (Node range expression) =
                     Nothing
 
         Expression.Negation next ->
-            getConstantExpressionRange next
-                |> Maybe.map (\_ -> range)
+            Maybe.map (\_ -> range) (getConstantExpressionRange next)
 
         Expression.ParenthesizedExpression next ->
-            getConstantExpressionRange next
-                |> Maybe.map (\_ -> range)
+            Maybe.map (\_ -> range) (getConstantExpressionRange next)
 
         Expression.TupledExpression list ->
             List.foldr foldConstantExpression (Just range) list
@@ -217,8 +215,7 @@ getConstantExpressionRange (Node range expression) =
 
 foldConstantExpression : Node Expression -> Maybe Range -> Maybe Range
 foldConstantExpression node acc =
-    getConstantExpressionRange node
-        |> Maybe.andThen (\_ -> acc)
+    Maybe.andThen (\_ -> acc) (getConstantExpressionRange node)
 
 
 fixAlways : { always : Range, application : Range, expression : Range } -> List Fix
