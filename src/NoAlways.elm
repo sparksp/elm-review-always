@@ -67,6 +67,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "NoNothingToNothing" contextCreator
         |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 
